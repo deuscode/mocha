@@ -1,62 +1,114 @@
 'use strict';
 
+var sinon = require('sinon');
 var Mocha = require('../../');
 var Suite = Mocha.Suite;
 var Runner = Mocha.Runner;
 var Test = Mocha.Test;
 
-describe('json reporter', function () {
-  var suite, runner;
+describe('JSON reporter', function() {
+  var sandbox;
+  var suite;
+  var runner;
+  var testTitle = 'json test 1';
+  var noop = function() {};
 
-  beforeEach(function () {
+  beforeEach(function() {
     var mocha = new Mocha({
       reporter: 'json'
     });
     suite = new Suite('JSON suite', 'root');
     runner = new Runner(suite);
+    var options = {};
     /* eslint no-unused-vars: off */
-    var mochaReporter = new mocha._reporter(runner);
+    var mochaReporter = new mocha._reporter(runner, options);
   });
 
-  it('should have 1 test failure', function (done) {
-    var testTitle = 'json test 1';
-    var error = { message: 'oh shit' };
+  beforeEach(function() {
+    sandbox = sinon.createSandbox();
+    sandbox.stub(process.stdout, 'write').callsFake(noop);
+  });
 
-    suite.addTest(new Test(testTitle, function (done) {
-      done(new Error(error.message));
-    }));
+  afterEach(function() {
+    sandbox.restore();
+  });
 
-    runner.run(function (failureCount) {
-      failureCount.should.be.exactly(1);
-      runner.should.have.property('testResults');
-      runner.testResults.should.have.property('failures');
-      runner.testResults.failures.should.be.an.instanceOf(Array);
-      runner.testResults.failures.should.have.a.lengthOf(1);
+  it('should have 1 test failure', function(done) {
+    var error = {message: 'oh shit'};
 
-      var failure = runner.testResults.failures[0];
-      failure.should.have.property('title', testTitle);
-      failure.err.message.should.equal(error.message);
-      failure.should.have.properties('err');
+    suite.addTest(
+      new Test(testTitle, function(done) {
+        done(new Error(error.message));
+      })
+    );
 
+    runner.run(function(failureCount) {
+      sandbox.restore();
+      expect(runner, 'to satisfy', {
+        testResults: {
+          failures: [
+            {
+              title: testTitle,
+              err: {
+                message: error.message
+              }
+            }
+          ]
+        }
+      });
+      expect(failureCount, 'to be', 1);
       done();
     });
   });
 
-  it('should have 1 test pending', function (done) {
-    var testTitle = 'json test 1';
-
+  it('should have 1 test pending', function(done) {
     suite.addTest(new Test(testTitle));
 
-    runner.run(function (failureCount) {
-      failureCount.should.be.exactly(0);
-      runner.should.have.property('testResults');
-      runner.testResults.should.have.property('pending');
-      runner.testResults.pending.should.be.an.instanceOf(Array);
-      runner.testResults.pending.should.have.a.lengthOf(1);
+    runner.run(function(failureCount) {
+      sandbox.restore();
+      expect(runner, 'to satisfy', {
+        testResults: {
+          pending: [
+            {
+              title: testTitle
+            }
+          ]
+        }
+      });
+      expect(failureCount, 'to be', 0);
+      done();
+    });
+  });
 
-      var pending = runner.testResults.pending[0];
-      pending.should.have.property('title', testTitle);
+  it('should handle circular objects in errors', function(done) {
+    var testTitle = 'json test 1';
+    function CircleError() {
+      this.message = 'oh shit';
+      this.circular = this;
+    }
+    var error = new CircleError();
 
+    suite.addTest(
+      new Test(testTitle, function(done) {
+        throw error;
+      })
+    );
+
+    runner.run(function(failureCount) {
+      sandbox.restore();
+      expect(runner, 'to satisfy', {
+        testResults: {
+          failures: [
+            {
+              title: testTitle,
+              err: {
+                message: error.message
+              }
+            }
+          ]
+        }
+      });
+      expect(failureCount, 'to be', 1);
       done();
     });
   });

@@ -1,4 +1,9 @@
 'use strict';
 
-global.expect = require('expect.js');
-global.assert = require('assert');
+var unexpected = require('unexpected');
+global.expect = require('./assertions').mixinMochaAssertions(
+  unexpected
+    .clone()
+    .use(require('unexpected-sinon'))
+    .use(require('unexpected-eventemitter'))
+);

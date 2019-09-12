@@ -1,4 +1,8 @@
 coverage/
-lib/to-iso-string/**/*.js
 mocha.js
-BUILDTMP
+*.fixture.js
+docs/
+out/
+!lib/mocha.js
+test/integration/fixtures
+!.*.js
